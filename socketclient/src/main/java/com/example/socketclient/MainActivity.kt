@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity(),MessageListener {
         }
 
         val packageName = packageName
-        val uri = Uri.parse("android.resource://$packageName/" + R.raw.ru)
+        val uri = Uri.parse("android.resource://$packageName/" + R.raw.cc)
         Log.d("MainActivity", "onCreate: ${uri.toString()}")
 
         layoutBinding.video.setVideoURI(uri)
@@ -145,7 +145,7 @@ class MainActivity : ComponentActivity(),MessageListener {
             }
             val average: Long = sum.toLong() / times.size
             println("client3当前平均值" + average + "us")
-            layoutBinding.text1.text = times.toString()+"当前平均值"+average+"us"
+            //layoutBinding.text1.text = times.toString()+"当前平均值"+average+"us"
 
 
 

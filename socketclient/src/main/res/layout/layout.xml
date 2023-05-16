@@ -57,6 +57,7 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/text"
                 android:textSize="40sp"
+                android:visibility="gone"
                 android:text="0ms"
                 />
         </LinearLayout>

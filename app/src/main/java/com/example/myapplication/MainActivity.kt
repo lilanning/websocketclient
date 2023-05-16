@@ -1,11 +1,14 @@
 package com.example.myapplication
 
+import android.content.Context
+import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.databinding.DataBindingUtil
 import com.example.myapplication.databinding.MainactivityBinding
+import com.example.myapplication.ui.MyPresentation
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -39,6 +42,12 @@ class MainActivity : ComponentActivity() {
         mainactivityBinding =
             DataBindingUtil.inflate(layoutInflater, R.layout.mainactivity, null, false)
         setContentView(mainactivityBinding.root)
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val displays = displayManager.displays
+        if (displays.size>1){
+            val myPresentation = MyPresentation(this,displays[1])
+            myPresentation.show()
+        }
         onBroadcastReceive()
         mUDPBroadCast = UDPBroadcaster(this)
 
