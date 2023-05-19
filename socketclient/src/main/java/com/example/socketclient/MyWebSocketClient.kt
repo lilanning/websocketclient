@@ -22,18 +22,13 @@ class MyWebSocketClient(val context:Context,serverUri: String?) : WebSocketClien
 
     override fun onMessage(s: String) {
         println("WebSocket message received: $s")
-
-        val handler =object : Handler(Looper.getMainLooper()){
-            override fun handleMessage(msg: Message) {
-                super.handleMessage(msg)
-            }
-        }
-//        handler.post{
-//            Toast.makeText(context,"${s.toString()}",Toast.LENGTH_SHORT).show()
-//        }
         if ("what？".equals(s)){
             MessageManager.getListener()?.handleMessage()
+            return
         }
+
+        //负控制器客户端必有
+        MessageManager.messageListener?.seekTo(s)
 
     }
 

@@ -2,6 +2,7 @@ package com.example.socketclient
 
 interface MessageListener {
     fun handleMessage()
+    fun seekTo(mes :String)
 }
 object MessageManager{
     var messageListener:MessageListener? = null

@@ -4,19 +4,27 @@
     <data>
 
     </data>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-        <TextView
-            android:layout_width="match_parent"
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+<!--        <VideoView-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_gravity="center"-->
+<!--            android:id="@+id/video"/>-->
+        <Button
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="哈哈哈哈哈"/>
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="哈哈哈哈哈哈哈"/>
-    </LinearLayout>
+            android:text="play"
+            android:id="@+id/play"/>
+
+
+
+
+
+
+
+    </FrameLayout>
 
 
 </layout>

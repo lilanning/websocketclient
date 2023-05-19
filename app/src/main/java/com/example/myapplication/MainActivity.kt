@@ -1,19 +1,25 @@
 package com.example.myapplication
 
 import android.content.Context
-import android.hardware.display.DisplayManager
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.databinding.DataBindingUtil
 import com.example.myapplication.databinding.MainactivityBinding
+import com.example.myapplication.databinding.SecondBinding
 import com.example.myapplication.ui.MyPresentation
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 
 class MainActivity : ComponentActivity() {
@@ -24,7 +30,7 @@ class MainActivity : ComponentActivity() {
     var executorService = Executors.newFixedThreadPool(3)
 
     private val BROADCAST_IP = "255.255.255.255"
-    private val BROADCAST_PORT = 8887
+    private val BROADCAST_PORT = 8886
 
     val SEND_PORT: Int = 8008
     val DEST_PORT: Int = 8009
@@ -37,22 +43,53 @@ class MainActivity : ComponentActivity() {
     private var shouldStop = 0
 
     lateinit var mUDPBroadCast: UDPBroadcaster
+    lateinit var myPresentation:MyPresentation
+
+
+
+    private val layoutParams = WindowManager.LayoutParams().apply {
+        width = WRAP_CONTENT
+        height = WRAP_CONTENT
+        gravity = Gravity.TOP or Gravity.END
+        flags = (WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+    }
+
+    var secondScreen = 0
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mainactivityBinding =
             DataBindingUtil.inflate(layoutInflater, R.layout.mainactivity, null, false)
         setContentView(mainactivityBinding.root)
-        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val displays = displayManager.displays
-        if (displays.size>1){
-            val myPresentation = MyPresentation(this,displays[1])
-            myPresentation.show()
+//        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+//        val displays = displayManager.displays
+//        if (displays.size>1){
+//             myPresentation = MyPresentation(this,displays[1])
+//            myPresentation.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+//            myPresentation.show()
+//        }
+
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivityForResult(intent, 1)
+            } else {
+
+            }
         }
         onBroadcastReceive()
         mUDPBroadCast = UDPBroadcaster(this)
 
-        mainactivityBinding.btnSend.setOnClickListener {
-            onBroadcastSend(it)
+//        mainactivityBinding.btnSend.setOnClickListener {
+//            if (displays.size>1){
+//                val myPresentation = MyPresentation(this,displays[1])
+//                myPresentation.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+//                myPresentation.show()
+//            }
+           // addSecond()
+            //onBroadcastSend(it)
 //            val runnable = Runnable {
 //                startTime = System.currentTimeMillis()
 //                onBroadcastSend(it)
@@ -65,11 +102,33 @@ class MainActivity : ComponentActivity() {
 //                handle.cancel(true)
 //                service.shutdownNow()
 //            }, 2000, TimeUnit.SECONDS)
-        }
-        mainactivityBinding.btnReceive.setOnClickListener {
-            onBroadcastReceive()
-        }
+//        }
+//        mainactivityBinding.btnReceive.setOnClickListener {
+//            onBroadcastReceive()
+//        }
 
+//        val options= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN
+//        window.decorView.systemUiVisibility = options
+//        val packageName = packageName
+//        val uri = Uri.parse("android.resource://$packageName/" + R.raw.aaoutput)
+//        Log.d("MainActivity", "onCreate: ${uri.toString()}")
+//
+//        mainactivityBinding.video.setVideoURI(uri)
+//        val mediaController = MediaController(this)
+//        mainactivityBinding.video.setMediaController(mediaController)
+//
+//        val start = System.nanoTime()
+        mainactivityBinding.play.setOnClickListener {
+//            mainactivityBinding.video.start()
+//            mainactivityBinding.video.requestFocus()
+//            println("主屏幕开始时间 ${start.toString()}")
+//            myPresentation.play()
+            onBroadcastSend(it)
+
+        }
+//        mainactivityBinding.video.setOnCompletionListener {
+//            println("主屏幕完成时间 ${System.nanoTime()}")
+//        }
     }
 
     fun onBroadcastSend(view: View?) {
@@ -173,8 +232,41 @@ class MainActivity : ComponentActivity() {
 
 
 
+    fun GetPermission() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                startActivityForResult(intent, 1234)
+            }
+        }
+    }
 
+    private fun updateVrLayout(view: View, layoutParams: WindowManager.LayoutParams) {
+        Log.i(TAG, "updateVrLayout")
+         val windowManager: WindowManager = applicationContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        try {
+            if (view.parent != null || view.isAttachedToWindow) {
+                windowManager.updateViewLayout(view, layoutParams)
+            } else {
+                windowManager.addView(view, layoutParams)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.i(TAG, "error ${e.message}")
+        }
+    }
 
-
-
+    override fun onResume() {
+        super.onResume()
+        val secondBinding = DataBindingUtil.inflate<SecondBinding>(layoutInflater,R.layout.second,null,false)
+        mainactivityBinding.play.postDelayed({
+            updateVrLayout(secondBinding.root,layoutParams)
+        },1000)
+        secondBinding.play.setOnClickListener {
+            onBroadcastSend(it)
+        }
+    }
 }
