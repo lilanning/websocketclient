@@ -5,6 +5,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +15,7 @@ import android.os.Looper
 import android.os.Message
 import android.provider.Settings
 import android.util.Log
+import android.view.SurfaceHolder
 import android.view.View
 import android.view.WindowManager
 import android.widget.MediaController
@@ -31,27 +34,15 @@ class MainActivity : ComponentActivity(),MessageListener {
     private lateinit var layoutBinding: LayoutBinding
     private lateinit var webSocketClient:MyWebSocketClient
     private var startTime = System.currentTimeMillis()
-    private val BROADCAST_PORT = 8886
-    private val isRuning = true
-    private var serverHost = ""
-    private val BROADCAST_IP = "255.255.255.255"
     private var start = System.nanoTime()
     private val times = ArrayList<Long>()
 
-    private var isCompleted = false
 
     lateinit var myPresentation:MyPresentation
 
-    private var datagramSocket: DatagramSocket? = null
+    private lateinit var mediaPlayer:MediaPlayer
 
     private val REQUEST_CODE_SELECT_VIDEO = 100
-    val runnable = object : Runnable {
-        override fun run() {
-            layoutBinding.text.text =
-                (System.currentTimeMillis() - startTime).toString() + "ms"
-            handler.postDelayed(this, 100)
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,10 +54,16 @@ class MainActivity : ComponentActivity(),MessageListener {
         //设置无导航栏
         val options= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_FULLSCREEN
         window.decorView.systemUiVisibility = options
-        //onBroadcastReceive()
-        //val webSocketClient = MyWebSocketClient("ws://192.168.43.2271:8888")
         layoutBinding.start.setOnClickListener {
             layoutBinding.line1.visibility = View.GONE
+            val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            val displays = displayManager.displays
+            if (displays.size>1){
+                myPresentation = MyPresentation(this,displays[1])
+                myPresentation.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
+                myPresentation.show()
+                println("展示副屏")
+            }
             Thread{
                 try {
                      webSocketClient = MyWebSocketClient(this,"ws://169.254.228.156:8888")
@@ -75,7 +72,6 @@ class MainActivity : ComponentActivity(),MessageListener {
 //                        println("还没有打开呢")
 //                    }
                     webSocketClient.connectBlocking()
-                    //webSocketClient.send("World")
                 }catch (e:Exception){
                     e.printStackTrace()
                 }
@@ -97,30 +93,28 @@ class MainActivity : ComponentActivity(),MessageListener {
             }
         }
 
-        val packageName = packageName
-        val uri = Uri.parse("android.resource://$packageName/" + R.raw.ddoutput)
-        Log.d("MainActivity", "onCreate: ${uri.toString()}")
-
-        layoutBinding.video.setVideoURI(uri)
-        val mediaController = MediaController(this)
-        layoutBinding.video.setMediaController(mediaController)
-        layoutBinding.select.setOnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT)
-            intent.type = "video/*"
-            startActivityForResult(intent, REQUEST_CODE_SELECT_VIDEO)
-            layoutBinding.video.stopPlayback()
-            handler.removeMessages(0)
-            handler.post(runnable)
-        }
+//        val packageName = packageName
+//        val uri = Uri.parse("android.resource://$packageName/" + R.raw.aaoutput)
+//        Log.d("MainActivity", "onCreate: ${uri.toString()}")
+//
+//        layoutBinding.video.setVideoURI(uri)
+//        val mediaController = MediaController(this)
+//        layoutBinding.video.setMediaController(mediaController)
+//        layoutBinding.select.setOnClickListener {
+//            val intent = Intent(Intent.ACTION_GET_CONTENT)
+//            intent.type = "video/*"
+//            startActivityForResult(intent, REQUEST_CODE_SELECT_VIDEO)
+//            layoutBinding.video.stopPlayback()
+//            handler.removeMessages(0)
+//            handler.post(runnable)
+//        }
 
 
         layoutBinding.button.setOnClickListener {
-            if (!layoutBinding.video.isPlaying) {
+            if (!mediaPlayer.isPlaying) {
                 val runnable = Runnable {
                     start = System.nanoTime()
-                    layoutBinding.video.start()
-
-                    layoutBinding.video.requestFocus()
+                    mediaPlayer.start()
                     //handlerThread.start()
 
                     //handler.post(runnable)
@@ -128,11 +122,11 @@ class MainActivity : ComponentActivity(),MessageListener {
 
                 }
                 val service = Executors.newSingleThreadScheduledExecutor()
-                val handle = service.scheduleAtFixedRate(runnable, 1, 122, TimeUnit.SECONDS)
+                val handle = service.scheduleAtFixedRate(runnable, 1000, 1000, TimeUnit.MILLISECONDS)
                 service.schedule({
                     handle.cancel(true)
                     service.shutdownNow()
-                }, 122*20, TimeUnit.SECONDS)
+                }, 70*1000, TimeUnit.MILLISECONDS)
             }
 
 
@@ -140,39 +134,29 @@ class MainActivity : ComponentActivity(),MessageListener {
 
         }
 
-        layoutBinding.video.setOnCompletionListener {
-            val time:Long = (System.nanoTime()- start)/1000
-            println("$time 微秒")
-            handler.removeMessages(0)
-            isCompleted = true
-            times.add(time)
-            println(times)
-            var sum: Long = 0
-            for (num in times) {
-                sum += num
+        mediaPlayer = MediaPlayer.create(this,R.raw.ccoutput)
+        mediaPlayer.setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build())
+        val surfaceHolder = layoutBinding.video.holder
+        surfaceHolder.addCallback(object : SurfaceHolder.Callback{
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                mediaPlayer.setDisplay(surfaceHolder)
             }
-            val average: Long = sum.toLong() / times.size
-            println("client3当前平均值" + average + "us")
-            //layoutBinding.text1.text = times.toString()+"当前平均值"+average+"us"
+
+            override fun surfaceChanged(
+                holder: SurfaceHolder,
+                format: Int,
+                width: Int,
+                height: Int
+            ) {
+            }
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+            }
+
+        })
 
 
 
-        }
-
-        layoutBinding.pause.setOnClickListener {
-            layoutBinding.video.pause()
-            handler.removeMessages(0)
-        }
-
-
-        //目前主控制器有
-        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val displays = displayManager.displays
-        if (displays.size>1){
-            myPresentation = MyPresentation(this,displays[1])
-            myPresentation.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-            myPresentation.show()
-        }
         MessageManager.setListener(this)
 
         if (Build.VERSION.SDK_INT >= 23) {
@@ -195,9 +179,9 @@ class MainActivity : ComponentActivity(),MessageListener {
         if (requestCode == REQUEST_CODE_SELECT_VIDEO && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
-                layoutBinding.video.setVideoURI(uri)
-                layoutBinding.video.start()
-                layoutBinding.video.requestFocus()
+//                layoutBinding.video.setVideoURI(uri)
+//                layoutBinding.video.start()
+//                layoutBinding.video.requestFocus()
             }
         }
     }
@@ -218,80 +202,58 @@ class MainActivity : ComponentActivity(),MessageListener {
 
     var first = true
     override fun handleMessage() {
-        if (!layoutBinding.video.isPlaying) {
+        if (!mediaPlayer.isPlaying) {
 
-            layoutBinding.video.start()
+            mediaPlayer.start()
             layoutBinding.video.requestFocus()
+            myPresentation.play()
 
-            //handlerThread.start()
-//
-//            handler.post(runnable)
-//            startTime = System.currentTimeMillis()
 
             //主控制器客户端必有
-//            myPresentation.play()
+
 //            while(first){
 //                first = false
+//                println("1111")
 //                val runnable = Runnable {
-//                    webSocketClient.send(layoutBinding.video.currentPosition.toString())
+//                    webSocketClient.send(mediaPlayer.currentPosition.toString())
+//                    webSocketClient.setStartTime(System.currentTimeMillis())
+//                    print("当前进度${mediaPlayer.currentPosition}")
 //
 //                }
 //                val service = Executors.newSingleThreadScheduledExecutor()
-//                val handle = service.scheduleAtFixedRate(runnable, 10*1000, 10*1000, TimeUnit.MICROSECONDS)
+//                val handle = service.scheduleAtFixedRate(runnable, 1000, 1000, TimeUnit.MILLISECONDS)
 //                service.schedule({
 //                    handle.cancel(true)
 //                    service.shutdownNow()
-//                }, 70*1000, TimeUnit.MICROSECONDS)
+//                    first = true
+//                }, 70*1000, TimeUnit.MILLISECONDS)
 //            }
 
         }
     }
 
     override fun seekTo(mes: String) {
-        val time = mes.toInt()+4
-        layoutBinding.video.seekTo(time)
+        if (!mediaPlayer.isPlaying){
+            mediaPlayer.start()
+            layoutBinding.video.requestFocus()
+            myPresentation.play()
+        }
+        val time = mes.toInt()+4 - mediaPlayer.currentPosition
+        println("相差$time")
+
+        if (time>40){
+            println("修正$time")
+            mediaPlayer.seekTo(mes.toLong(),MediaPlayer.SEEK_NEXT_SYNC)
+            myPresentation.seekTo(mes.toLong(),MediaPlayer.SEEK_NEXT_SYNC)
+        } else if (time<-40){
+            println("修正$time")
+            mediaPlayer.seekTo(mes.toLong(),MediaPlayer.SEEK_PREVIOUS_SYNC)
+            myPresentation.seekTo(mes.toLong(),MediaPlayer.SEEK_PREVIOUS_SYNC)
+        }
+
     }
 
-    /**
-     * 广播接受
-     */
-    fun onBroadcastReceive() {
-        Thread {
-            try {
-                // 创建接收数据报套接字并将其绑定到本地主机上的指定端口
-                datagramSocket = DatagramSocket(BROADCAST_PORT)
-                while (isRuning) {
-                    val buf = ByteArray(1024)
-                    val datagramPacket = DatagramPacket(buf, buf.size)
-                    datagramSocket?.receive(datagramPacket)
-                    serverHost = datagramPacket.address.hostAddress
-//                    val message = String(datagramPacket.data, 0, datagramPacket.length)
-//                    println(message)
-//                    onBroadcastSend(message)
-                    handleMessage()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }.start()
-    }
 
-    fun onBroadcastSend(message:String) {
-        Thread {
-            try {
-                val inetAddress = InetAddress.getByName("255.255.255.255")
-                val datagramSocketSend = DatagramSocket()
-                val data: ByteArray = layoutBinding.video.currentPosition.toString().toByteArray()
-                val datagramPacket =
-                    DatagramPacket(data, data.size, inetAddress, BROADCAST_PORT)
-                datagramSocketSend.send(datagramPacket)
-                // 发送设置为广播
-                datagramSocketSend.broadcast = true
-                datagramSocketSend.close()
-            } catch (e: java.lang.Exception) {
-                e.printStackTrace()
-            }
-        }.start()
-    }
+
 
 }
